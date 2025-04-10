@@ -56,33 +56,34 @@ function init {
         exit 0
     fi
 
-    # Install OpenVPN if not installed
-    if ! command -v openvpn &> /dev/null; then
-        apt-get update
-        apt-get install -y openvpn easy-rsa
-    fi
+    # Save server endpoint
+    echo "$SERVER_ENDPOINT" > "$HOME_DIR/.server"
 
     # Setup Easy-RSA
     if [ ! -d "$EASY_RSA_DIR" ]; then
         make-cadir "$EASY_RSA_DIR"
         cd "$EASY_RSA_DIR" || exit 1
         
-        # Configure vars
-        sed -i 's/^set_var EASYRSA_REQ_COUNTRY.*/set_var EASYRSA_REQ_COUNTRY\t"US"/' vars
-        sed -i 's/^set_var EASYRSA_REQ_PROVINCE.*/set_var EASYRSA_REQ_PROVINCE\t"California"/' vars
-        sed -i 's/^set_var EASYRSA_REQ_CITY.*/set_var EASYRSA_REQ_CITY\t"San Francisco"/' vars
-        sed -i 's/^set_var EASYRSA_REQ_ORG.*/set_var EASYRSA_REQ_ORG\t"OpenVPN"/' vars
-        sed -i 's/^set_var EASYRSA_REQ_EMAIL.*/set_var EASYRSA_REQ_EMAIL\t"admin@example.com"/' vars
-        sed -i 's/^set_var EASYRSA_REQ_OU.*/set_var EASYRSA_REQ_OU\t"OpenVPN"/' vars
-        sed -i 's/^set_var EASYRSA_KEY_SIZE.*/set_var EASYRSA_KEY_SIZE\t2048/' vars
-        sed -i 's/^set_var EASYRSA_ALGO.*/set_var EASYRSA_ALGO\tec/' vars
-        sed -i 's/^set_var EASYRSA_CURVE.*/set_var EASYRSA_CURVE\tprime256v1/' vars
-        
+        # Create fresh vars file with default values
+        cat > vars <<EOF
+set_var EASYRSA_REQ_COUNTRY     "US"
+set_var EASYRSA_REQ_PROVINCE    "California"
+set_var EASYRSA_REQ_CITY        "San Francisco"
+set_var EASYRSA_REQ_ORG         "OpenVPN"
+set_var EASYRSA_REQ_EMAIL       "admin@example.com"
+set_var EASYRSA_REQ_OU          "OpenVPN"
+set_var EASYRSA_KEY_SIZE        2048
+set_var EASYRSA_ALGO            ec
+set_var EASYRSA_CURVE           prime256v1
+set_var EASYRSA_CA_EXPIRE       3650
+set_var EASYRSA_CERT_EXPIRE     3650
+EOF
+
         # Initialize PKI
         ./easyrsa init-pki
-        ./easyrsa build-ca nopass
+        echo -e "\n\n" | ./easyrsa build-ca nopass
         ./easyrsa gen-dh
-        ./easyrsa build-server-full "$SERVER_NAME" nopass
+        ./easyrsa build-server-full server nopass
         ./easyrsa gen-crl
         
         # Generate TLS key
